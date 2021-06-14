@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 
 
-class Algorithm(ABC):
+class Placement(ABC):
     @abstractmethod
-    def __call__(self, cluster, clock):
+    def __call__(self, task, cluster, clock):
+        pass
+
+class Choose(ABC):
+    @abstractmethod
+    def __call__(self, cluster):
         pass

@@ -1,5 +1,6 @@
 from core.config import *
-
+import simpy
+import sys
 
 class Task(object):
     def __init__(self, env, job, task_config):
@@ -31,7 +32,7 @@ class Task(object):
         return self._parents
 
     @property
-    def ready(self):
+    def ready(self):  # all prerequisite tasks are done
         if not self._ready:
             for p in self.parents:
                 if not p.finished:
@@ -56,8 +57,8 @@ class Task(object):
         return ls
 
     # the most heavy
-    def start_task_instance(self, machine):
-        self.task_instances[self.next_instance_pointer].schedule(machine)
+    def start_task_instance(self, machines):
+        self.task_instances[self.next_instance_pointer].schedule(machines)
         self.next_instance_pointer += 1
 
     @property
@@ -114,6 +115,7 @@ class Job(object):
         self.env = env
         self.job_config = job_config
         self.id = job_config.id
+        self.submitted_time = None
 
         self.tasks_map = {}
         for task_config in job_config.task_configs:
@@ -213,13 +215,18 @@ class TaskInstance(object):
         self.task_instance_index = task_instance_index
         self.config = task_instance_config
         self.cpu = task_instance_config.cpu
+        self.gpu = task_instance_config.gpu
         self.memory = task_instance_config.memory
         self.disk = task_instance_config.disk
         self.duration = task_instance_config.duration
+        self.iterations = task_instance_config.iterations
+        self.step_time = task_instance_config.step_time
 
-        self.machine = None
+        self.machines = None
+        self.tors = None
         self.process = None
         self.new = True
+        self.timer = None
 
         self.started = False
         self.finished = False
@@ -230,21 +237,96 @@ class TaskInstance(object):
     def id(self):
         return str(self.task.id) + '-' + str(self.task_instance_index)
 
-    def do_work(self):
+    def do_work(self, same_tor=False):
         # self.cluster.waiting_tasks.remove(self)
         # self.cluster.running_tasks.append(self)
         # self.machine.run(self)
-        yield self.env.timeout(self.duration)
+        for i in range(self.iterations):
+            step_time = self.step_time * max(len(tor.task_instances) for tor in self.tors) if len(self.tors) > 1 else 1
+            print(
+                f'[{self.env.now}]\ttask {self.id} spans through tors {[t.id for t in self.tors]} running step {i}/{self.iterations} for {step_time}')
+            yield self.env.timeout(step_time)
+
+        # print(f'[{self.env.now}]\ttask {self.task.id} starts running')
+        # [for s in self.switches]
+        # yield self.env.timeout(self.duration)
+        # print(f'[{self.env.now}]\ttask {self.task.id} finishes')
 
         self.finished = True
         self.finished_timestamp = self.env.now
 
-        self.machine.stop_task_instance(self)
+        for machine, gpu in self.machines:
+            machine.stop_task_instance(self, gpu)
+            print(
+                f'[{self.env.now}]\ttask {self.id} done, machine {machine.id} releases {gpu} gpu and has {machine.gpu} gpus now')
+        print(f'[{self.env.now}]\ttask {self.id} done', file=sys.stderr)
 
-    def schedule(self, machine):
+    def schedule(self, machines):
         self.started = True
         self.started_timestamp = self.env.now
 
-        self.machine = machine
-        self.machine.run_task_instance(self)
+        self.machines = machines
+        tors_spanned = set()
+        for machine, gpu in machines:
+            print(
+                f'[{self.env.now}]\tmachine {machine.id} which has {machine.gpu} gpus is launching task {self.id} with {gpu} gpu')
+            if machine.tor not in tors_spanned:
+                tors_spanned.add(machine.tor)
+            machine.run_task_instance(self, gpu)
+        self.tors = tors_spanned
         self.process = self.env.process(self.do_work())
+
+        # def callback():
+        #     self.finished = True
+        #     self.finished_timestamp = self.env.now
+        #     for m, g in self.machines:
+        #         m.stop_task_instance(self, g)
+        #         print(
+        #             f'[{self.env.now}]\ttask {self.id} done, machine {m.id} releases {g} gpu and has {m.gpu} gpus now')
+        # self.timer = Timer(self.env, self.duration, callback)
+        # self.timer.start()
+
+
+class Timer(object):
+    def __init__(self, env, delay, callback):
+        self.env = env
+        self.delay = delay
+        self.action = None
+        self.callback = callback
+        self.running = False
+        self.canceled = False
+
+    def wait(self):
+        """
+        Calls a callback after time has elapsed.
+        """
+        try:
+            yield self.env.timeout(self.delay)
+            self.callback()
+            self.running = False
+        except simpy.Interrupt:
+            self.canceled = True
+            self.running = False
+
+    def start(self):
+        """
+        Starts the timer
+        """
+        if not self.running:
+            self.running = True
+            self.action = self.env.process(self.wait())
+
+    def stop(self):
+        """
+        Stops the timer
+        """
+        if self.running:
+            self.action.interrupt()
+            self.action = None
+
+    def reset(self):
+        """
+        Interrupts the current timer and restarts.
+        """
+        self.stop()
+        self.start()

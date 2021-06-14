@@ -1,10 +1,15 @@
 from core.machine import Machine
+from core.switch import Switch
 
 
 class Cluster(object):
-    def __init__(self):
+    def __init__(self, num_machines_per_tor=8, num_gpus_per_machine=8):
         self.machines = []
+        # self.switch = Switch()
+        self.tors = []  # top-of-rack switch
         self.jobs = []
+        self.num_machines_per_tor = num_machines_per_tor
+        self.num_gpus_per_machine = num_gpus_per_machine
 
     @property
     def unfinished_jobs(self):
@@ -65,10 +70,16 @@ class Cluster(object):
         return task_instances
 
     def add_machines(self, machine_configs):
-        for machine_config in machine_configs:
+        # len(machine_configs) //
+        num_tors = len(machine_configs) // self.num_machines_per_tor
+        for i in range(num_tors):
+            self.tors.append(Switch(self))
+        for i, machine_config in enumerate(machine_configs):
             machine = Machine(machine_config)
             self.machines.append(machine)
+            self.tors[i % num_tors].machines.append(machine)
             machine.attach(self)
+            machine.attach_to_tor(self.tors[i % num_tors])
 
     def add_job(self, job):
         self.jobs.append(job)
@@ -83,7 +94,10 @@ class Cluster(object):
 
     @property
     def disk(self):
-        return sum([machine.disk for machine in self.machines])
+        return sum([machine.disk for
+
+
+                    machine in self.machines])
 
     @property
     def cpu_capacity(self):

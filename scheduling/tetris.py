@@ -1,8 +1,8 @@
 import numpy as np
-from core.alogrithm import Algorithm
+from core.alogrithm import Placement
 
 
-class Tetris(Algorithm):
+class Tetris(Placement):
     @staticmethod
     def calculate_alignment(valid_pairs):
         machine_features = []

@@ -1,10 +1,10 @@
-from core.alogrithm import Algorithm
+from core.alogrithm import Placement
 
 
-class FirstFitAlgorithm(Algorithm):
+class FirstFitAlgorithm(Placement):
     def __call__(self, cluster, clock):
         machines = cluster.machines
-        tasks = cluster.ready_tasks_which_has_waiting_instance
+        tasks = cluster.tasks_which_has_waiting_instance
         candidate_task = None
         candidate_machine = None
 

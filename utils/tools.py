@@ -1,7 +1,5 @@
 import time
 import numpy as np
-import tensorflow as tf
-
 
 def average_completion(exp):
     completion_time = 0
@@ -22,13 +20,3 @@ def average_slowdown(exp):
             slowdown += (task.finished_timestamp - task.started_timestamp) / task.task_config.duration
     return slowdown / number_task
 
-
-def multiprocessing_run(episode, trajectories, makespans, average_completions, average_slowdowns):
-    np.random.seed(int(time.time()))
-    tf.random.set_random_seed(time.time())
-    episode.run()
-    trajectories.append(episode.simulation.scheduler.algorithm.current_trajectory)
-    makespans.append(episode.simulation.env.now)
-    # print(episode.simulation.env.now)
-    average_completions.append(average_completion(episode))
-    average_slowdowns.append(average_slowdown(episode))

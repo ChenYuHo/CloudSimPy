@@ -20,6 +20,7 @@ class Broker(object):
             assert job_config.submit_time >= self.env.now
             yield self.env.timeout(job_config.submit_time - self.env.now)
             job = Broker.job_cls(self.env, job_config)
-            # print('a task arrived at time %f' % self.env.now)
+            job.submitted_time = self.env.now
+            print(f'[{self.env.now}]\tjob {job.id} arrived')
             self.cluster.add_job(job)
         self.destroyed = True

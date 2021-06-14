@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 
 from core.job import JobConfig, TaskConfig
-from playground.DAG.utils.feature_synthesize import father_task_indices
 
 
 class CSVReader(object):
@@ -11,25 +10,27 @@ class CSVReader(object):
         self.filename = filename
         df = pd.read_csv(self.filename)
 
-        df.job_id = df.job_id.astype(dtype=int)
-        df.instances_num = df.instances_num.astype(dtype=int)
-
         job_task_map = {}
         job_submit_time_map = {}
         for i in range(len(df)):
             series = df.iloc[i]
-            job_id = series.job_id
-            task_id, parent_indices = father_task_indices(series.task_id, series.task_type)
+            job_id = int(series.job_id)
+            task_id = int(series.task_id)
+            # print(series)
 
             cpu = series.cpu
             memory = series.memory
             disk = series.disk
-            duration = series.duration
-            submit_time = series.submit_time
-            instances_num = series.instances_num
+            duration = int(series.duration)
+            if duration == 0:
+                continue
+            submit_time = int(series.submit_time)
+            instances_num = int(series.instances_num)
+            gpu = int(series.gpu)
+            iterations = int(series.iterations)
 
             task_configs = job_task_map.setdefault(job_id, [])
-            task_configs.append(TaskConfig(task_id, instances_num, cpu, memory, disk, duration, parent_indices))
+            task_configs.append(TaskConfig(task_id, instances_num, cpu, memory, disk, duration, gpu, iterations))
             job_submit_time_map[job_id] = submit_time
 
         job_configs = []
@@ -50,6 +51,7 @@ class CSVReader(object):
         task_instances_durations = []
         task_instances_cpu = []
         task_instances_memory = []
+        task_instances_gpu = []
         for job_config in ret:
             job_config.submit_time -= submit_time_base
             tasks_number += len(job_config.task_configs)
@@ -57,19 +59,23 @@ class CSVReader(object):
                 task_instances_numbers.append(task_config.instances_number)
                 task_instances_durations.extend([task_config.duration] * int(task_config.instances_number))
                 task_instances_cpu.extend([task_config.cpu] * int(task_config.instances_number))
+                task_instances_gpu.extend([task_config.gpu] * int(task_config.instances_number))
                 task_instances_memory.extend([task_config.memory] * int(task_config.instances_number))
 
         print('Jobs number: ', len(ret))
         print('Tasks number:', tasks_number)
 
-        print('Task instances number mean: ', np.mean(task_instances_numbers))
-        print('Task instances number std', np.std(task_instances_numbers))
+        # print('Task instances number mean: ', np.mean(task_instances_numbers))
+        # print('Task instances number std', np.std(task_instances_numbers))
+        #
+        # print('Task instances cpu mean: ', np.mean(task_instances_cpu))
+        # print('Task instances cpu std: ', np.std(task_instances_cpu))
 
-        print('Task instances cpu mean: ', np.mean(task_instances_cpu))
-        print('Task instances cpu std: ', np.std(task_instances_cpu))
+        print('Task instances gpu mean: ', np.mean(task_instances_gpu))
+        print('Task instances gpu std: ', np.std(task_instances_gpu))
 
-        print('Task instances memory mean: ', np.mean(task_instances_memory))
-        print('Task instances memory std: ', np.std(task_instances_memory))
+        # print('Task instances memory mean: ', np.mean(task_instances_memory))
+        # print('Task instances memory std: ', np.std(task_instances_memory))
 
         print('Task instances duration mean: ', np.mean(task_instances_durations))
         print('Task instances duration std: ', np.std(task_instances_durations))
