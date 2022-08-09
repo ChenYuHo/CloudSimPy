@@ -242,9 +242,11 @@ class TaskInstance(object):
         # self.cluster.running_tasks.append(self)
         # self.machine.run(self)
         for i in range(self.iterations):
-            step_time = self.step_time * max(len(tor.task_instances) for tor in self.tors) if len(self.tors) > 1 else 1
+            step_time = self.step_time * (max(len(tor.task_instances) for tor in self.tors) if len(self.tors) > 1 else 1)
             print(
                 f'[{self.env.now}]\ttask {self.id} spans through tors {[t.id for t in self.tors]} running step {i}/{self.iterations} for {step_time}')
+            for t in self.tors:
+                print(f'tor {t.id} is running {t.task_instances}')
             yield self.env.timeout(step_time)
 
         # print(f'[{self.env.now}]\ttask {self.task.id} starts running')

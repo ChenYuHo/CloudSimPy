@@ -18,10 +18,10 @@ class Scheduler(object):
             task = self.choose(self.cluster)
             if task is None:
                 break
-            print(f'[{self.env.now}]\tscheduler has chosen task {task.id}, which requires {task.task_config.gpu} to execute')
-            machine_gpus = self.placement(task, self.cluster, self.env.now) # mid: gpus allocated
+            print(f'[{self.env.now}]\tscheduler has chosen task {task.id} requiring {task.task_config.gpu} GPUs')
+            machine_gpus = self.placement(task, self.cluster, self.env.now)  # mid: gpus allocated
             if machine_gpus is None:
-                print(f'[{self.env.now}]\tfailed to get a valid placement for task {task.id}', file=sys.stderr)
+                print(f'[{self.env.now}]\tfailed to get a placement for task {task.id} requiring {task.task_config.gpu} GPUs', file=sys.stderr)
                 break
             print(f'[{self.env.now}]\tplacement determined for task {task.id}: {machine_gpus}')
             task.start_task_instance([(self.cluster.machines[mid], machine_gpus[mid]) for mid in machine_gpus.keys()])

@@ -12,7 +12,7 @@ class Random(Placement):
         placement_machines = []
         gpus = [m.gpu for m in machines]
         for _ in range(task.task_config.gpu):
-            possible_machines = [m for i, m in enumerate(machines) if gpus[i] > 0]
+            possible_machines = [m for i, m in enumerate(machines) if gpus[i] > 0]  # at least one free GPU
             if len(possible_machines) == 0:
                 return None
             random_index = np.random.randint(0, len(possible_machines))
